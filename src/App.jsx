@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function App() {
@@ -9,13 +9,17 @@ function App() {
     const [ws, setWs] = useState(null);
     const [isScraping, setIsScraping] = useState(false);
     const [isInitial, setIsInitial] = useState(true);
-    const [visitedUrls, setVisitedUrls] = useState([]); // State to manage the list of visited URLs
+    const [visitedUrls, setVisitedUrls] = useState([]);
+    const [connectionStatus, setConnectionStatus] = useState('connecting');
 
-    useEffect(() => {
-        const socket = new WebSocket('wss://siftor-backend.onrender.com');
+    const connectWebSocket = useCallback(() => {
+        // Use the WSS URL with potential fallback
+        const socket = new WebSocket('wss://siftor-backend.onrender.com/');
 
         socket.onopen = () => {
             console.log('Connected to WebSocket server');
+            setConnectionStatus('connected');
+            setError('');
         };
 
         socket.onmessage = (event) => {
@@ -39,16 +43,38 @@ function App() {
             }
         };
 
-        socket.onclose = () => {
-            console.log('Disconnected from WebSocket server');
+        socket.onclose = (event) => {
+            console.log('Disconnected from WebSocket server', event.code, event.reason);
+            setConnectionStatus('disconnected');
+            
+            // Attempt to reconnect after a delay if not a normal closure
+            if (event.code !== 1000) {
+                setTimeout(() => {
+                    console.log('Attempting to reconnect...');
+                    connectWebSocket();
+                }, 3000);
+            }
+        };
+
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            setError('WebSocket connection error. Please try again later.');
+            setConnectionStatus('error');
         };
 
         setWs(socket);
-
-        return () => {
-            socket.close();
-        };
+        return socket;
     }, []);
+
+    useEffect(() => {
+        const socket = connectWebSocket();
+        
+        return () => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.close();
+            }
+        };
+    }, [connectWebSocket]);
 
     const updateVisitedUrls = (newUrl) => {
         setVisitedUrls((prevUrls) => {
@@ -67,8 +93,12 @@ function App() {
         setResult([]);
         setIsInitial(false);
 
-        if (ws) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ url }));
+        } else {
+            setError('WebSocket connection is not open. Please refresh the page and try again.');
+            // Attempt to reconnect
+            connectWebSocket();
         }
     };
 
@@ -102,6 +132,12 @@ function App() {
                 <h1 className="text-white text-5xl font-bold text-center mb-14" style={{ fontFamily: 'Montserrat, sans-serif' }}>up2date</h1>
             )}
             
+            {connectionStatus === 'error' && (
+                <div className="text-red-400 mb-4 text-center">
+                    WebSocket connection error. Please refresh the page.
+                </div>
+            )}
+            
             {isInitial && (
                 <form onSubmit={handleSubmit} className="text-center flex items-center justify-center mb-4">
                     <input
@@ -112,7 +148,14 @@ function App() {
                         className="text-white bg-zinc-800 rounded text-center p-2 mr-2 font-semibold" 
                         style={{ fontFamily: 'Montserrat, sans-serif' }}
                     />
-                    <button type="submit" style={{ fontFamily: 'Montserrat, sans-serif' }} className="bg-white text-black p-2 rounded font-extrabold" >Scrape</button>
+                    <button 
+                        type="submit" 
+                        style={{ fontFamily: 'Montserrat, sans-serif' }} 
+                        className="bg-white text-black p-2 rounded font-extrabold"
+                        disabled={connectionStatus !== 'connected'}
+                    >
+                        Scrape
+                    </button>
                 </form>
             )}
 
