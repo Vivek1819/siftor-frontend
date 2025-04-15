@@ -2,17 +2,15 @@
   "version": 2,
   "builds": [
     {
-      "src": "frontend/package.json",
-      "use": "@vercel/node",
+      "src": "package.json",
+      "use": "@vercel/static-build",
       "config": {
-        "includeFiles": ["frontend/**"]
+        "distDir": "dist"
       }
     }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "frontend/$1" }
-  ],
-  "env": {
-    "ROLLUP_SKIP_NODEJS": "true"
-  }
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
 }
