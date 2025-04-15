@@ -14,7 +14,9 @@ function App() {
 
     const connectWebSocket = useCallback(() => {
         // Use the WSS URL with potential fallback
-        const socket = new WebSocket('wss://siftor-backend.onrender.com/');
+        const socket = new WebSocket(import.meta.env.PROD 
+            ? 'wss://siftor-backend.onrender.com' 
+            : 'ws://localhost:10000');
 
         socket.onopen = () => {
             console.log('Connected to WebSocket server');
