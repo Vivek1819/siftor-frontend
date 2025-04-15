@@ -12,7 +12,7 @@ function App() {
     const [visitedUrls, setVisitedUrls] = useState([]); // State to manage the list of visited URLs
 
     useEffect(() => {
-        const socket = new WebSocket('ws://localhost:5000');
+        const socket = new WebSocket('wss://siftor-backend.onrender.com');
 
         socket.onopen = () => {
             console.log('Connected to WebSocket server');
